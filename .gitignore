@@ -1,0 +1,10 @@
+.vscode/
+build/
+datasets/
+out/
+out_eval/
+runs/
+third_party/
+gt_val.csv
+seadronessee.yaml
+yolov8n.pt

@@ -1,8 +1,7 @@
 .vscode/
 build/
 datasets/
-out/
-out_eval/
+out*
 runs/
 third_party/
 gt_val.csv

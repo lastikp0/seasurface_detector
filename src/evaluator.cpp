@@ -1,6 +1,13 @@
 #include "evaluator.hpp"
+
+#include <opencv2/opencv.hpp>
+#include <string>
+#include <unordered_map>
+#include <vector>
 #include <fstream>
 #include <stdexcept>
+
+#include "detector.hpp"
 
 static std::vector<std::string> split_csv_line(const std::string& s) {
     std::vector<std::string> out;
@@ -10,6 +17,7 @@ static std::vector<std::string> split_csv_line(const std::string& s) {
         else cur.push_back(c);
     }
     out.push_back(cur);
+
     return out;
 }
 
@@ -26,6 +34,7 @@ float Evaluator::iou(const cv::Rect& a, const cv::Rect& b) {
     int interArea = (a & b).area();
     int unionArea = a.area() + b.area() - interArea;
     if (unionArea <= 0) return 0.0f;
+
     return static_cast<float>(interArea) / static_cast<float>(unionArea);
 }
 
@@ -59,6 +68,7 @@ void Evaluator::add_frame(const std::string& source, int frame,
     auto it = gt_.find(key(source, frame));
     if (it == gt_.end()) {
         fp_ += (long long)preds.size();
+
         return;
     }
 
@@ -90,5 +100,6 @@ EvalResult Evaluator::finalize() const {
     r.tp = tp_; r.fp = fp_; r.fn = fn_;
     r.precision = (tp_ + fp_) ? (double)tp_ / (double)(tp_ + fp_) : 0.0;
     r.recall = (tp_ + fn_) ? (double)tp_ / (double)(tp_ + fn_) : 0.0;
+
     return r;
 }

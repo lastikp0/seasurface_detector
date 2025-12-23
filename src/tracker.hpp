@@ -1,7 +1,9 @@
 #pragma once
+
 #include <opencv2/opencv.hpp>
 #include <unordered_map>
 #include <vector>
+
 #include "detector.hpp"
 
 class SimpleTracker {

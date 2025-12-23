@@ -1,5 +1,10 @@
 #include "tracker.hpp"
+
 #include <vector>
+#include <opencv2/opencv.hpp>
+#include <unordered_map>
+
+#include "detector.hpp"
 
 SimpleTracker::SimpleTracker(int max_missed) : max_missed_(max_missed) {}
 
@@ -7,6 +12,7 @@ float SimpleTracker::iou(const cv::Rect& a, const cv::Rect& b) {
     int interArea = (a & b).area();
     int unionArea = a.area() + b.area() - interArea;
     if (unionArea <= 0) return 0.0f;
+    
     return static_cast<float>(interArea) / static_cast<float>(unionArea);
 }
 

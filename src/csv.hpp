@@ -1,6 +1,8 @@
 #pragma once
+
 #include <fstream>
 #include <string>
+
 #include "detector.hpp"
 
 class CsvWriter {

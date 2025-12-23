@@ -1,5 +1,6 @@
 #include "detector.hpp"
 
+#include <opencv2/opencv.hpp>
 #include <opencv2/dnn.hpp>
 
 #include <onnxruntime_cxx_api.h>
@@ -13,6 +14,9 @@
 #include <cmath>
 #include <algorithm>
 #include <numeric>
+#include <string>
+#include <vector>
+#include <memory>
 
 std::vector<Detection> DummyDetector::detect(const cv::Mat& bgr) {
     std::vector<Detection> out;
@@ -22,24 +26,24 @@ std::vector<Detection> DummyDetector::detect(const cv::Mat& bgr) {
     const int h = bgr.rows;
 
     int bw = std::max(10, static_cast<int>(0.25 * w));
-    int bh = std::max(10, static_cast<int>(0.18 * h));
+    int bh = std::max(10, static_cast<int>(0.25 * h));
     int x = (w - bw) / 2;
     int y = (h - bh) / 2;
 
     Detection d;
-    d.class_id = 0;
-    d.class_name = "swimmer";
-    d.confidence = 1.0f;
     d.bbox = cv::Rect(x, y, bw, bh);
     out.push_back(d);
+
     return out;
 }
 
 static std::string trim(const std::string& s) {
     size_t a = 0;
     while (a < s.size() && std::isspace((unsigned char)s[a])) a++;
+
     size_t b = s.size();
     while (b > a && std::isspace((unsigned char)s[b - 1])) b--;
+
     return s.substr(a, b - a);
 }
 
@@ -54,14 +58,17 @@ std::vector<std::string> YoloOnnxDetector::load_class_names(const std::string& p
         if (!line.empty()) names.push_back(line);
     }
     if (names.empty()) throw std::runtime_error("Classes file is empty: " + path);
+
     return names;
 }
 
 static std::string ort_status_message_and_release(OrtStatus* st) {
     if (!st) return {};
+
     const OrtApi* api = OrtGetApiBase()->GetApi(ORT_API_VERSION);
     std::string msg = api ? api->GetErrorMessage(st) : "ORT status (no api)";
     if (api) api->ReleaseStatus(st);
+
     return msg;
 }
 
@@ -69,6 +76,7 @@ static bool try_enable_ort_cuda(Ort::SessionOptions& so, int device_id = 0) {
     const OrtApiBase* base = OrtGetApiBase();
     if (!base) {
         std::cerr << "WARN: OrtGetApiBase() returned null. Using CPU.\n";
+
         return false;
     }
 
@@ -76,6 +84,7 @@ static bool try_enable_ort_cuda(Ort::SessionOptions& so, int device_id = 0) {
     if (!api) {
         std::cerr << "WARN: ORT GetApi(ORT_API_VERSION=" << ORT_API_VERSION
                   << ") returned null. Headers/library mismatch? Using CPU.\n";
+
         return false;
     }
 
@@ -90,6 +99,7 @@ static bool try_enable_ort_cuda(Ort::SessionOptions& so, int device_id = 0) {
             if (st) {
                 std::cerr << "WARN: CreateCUDAProviderOptions failed: "
                           << ort_status_message_and_release(st) << "Using CPU.\n";
+
                 return false;
             }
         }
@@ -103,6 +113,7 @@ static bool try_enable_ort_cuda(Ort::SessionOptions& so, int device_id = 0) {
                 std::cerr << "WARN: UpdateCUDAProviderOptions failed: "
                           << ort_status_message_and_release(st) << "Using CPU.\n";
                 api->ReleaseCUDAProviderOptions(cuda_opts);
+
                 return false;
             }
         }
@@ -114,11 +125,13 @@ static bool try_enable_ort_cuda(Ort::SessionOptions& so, int device_id = 0) {
                 std::cerr << "WARN: SessionOptionsAppendExecutionProvider_CUDA_V2 failed: "
                           << ort_status_message_and_release(st) << "Using CPU.\n";
                 api->ReleaseCUDAProviderOptions(cuda_opts);
+
                 return false;
             }
         }
 
         api->ReleaseCUDAProviderOptions(cuda_opts);
+
         return true;
     }
 
@@ -130,12 +143,15 @@ static bool try_enable_ort_cuda(Ort::SessionOptions& so, int device_id = 0) {
         if (st) {
             std::cerr << "WARN: SessionOptionsAppendExecutionProvider_CUDA failed: "
                       << ort_status_message_and_release(st) << "Using CPU.\n";
+
             return false;
         }
+
         return true;
     }
 
     std::cerr << "WARN: This ORT build does not expose CUDA EP append APIs. Using CPU.\n";
+
     return false;
 }
 
@@ -208,6 +224,7 @@ cv::Mat YoloOnnxDetector::letterbox(const cv::Mat& src, int new_w, int new_h,
 
     cv::Mat out(new_h, new_w, src.type(), cv::Scalar(114, 114, 114));
     resized.copyTo(out(cv::Rect(pad_w, pad_h, rw, rh)));
+
     return out;
 }
 
@@ -327,9 +344,12 @@ static std::vector<int64_t> fix_dynamic_shape(std::vector<int64_t> shape, size_t
     if (unknown > 1) return shape;
     if (prod <= 0) return shape;
     if ((long long)elem_count % prod != 0) return shape;
+
     long long missing = (long long)elem_count / prod;
     if (missing <= 0) return shape;
+    
     shape[unknown_idx] = (int64_t)missing;
+
     return shape;
 }
 

@@ -1,5 +1,8 @@
 #include "csv.hpp"
+
 #include <stdexcept>
+#include <fstream>
+#include <string>
 
 CsvWriter::CsvWriter(const std::string& path) {
     out_.open(path);
@@ -20,8 +23,7 @@ void CsvWriter::write_detection(const std::string& source, int frame, const Dete
          << d.bbox.x << ","
          << d.bbox.y << ","
          << d.bbox.width << ","
-         << d.bbox.height
-         << "\n";
+         << d.bbox.height << "\n";
 }
 
 void CsvWriter::close() {

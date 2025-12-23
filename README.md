@@ -115,7 +115,13 @@ cmake --build build -j
 
 ---
 
-## 4) Флаги CLI
+## 4) Демонстрация работы
+![example1](examples/annotated_71.jpg)
+![example2](examples/annotated_4867.jpg)
+
+---
+
+## 5) Флаги CLI
 
 ```
 ./build/seasurface_detector
@@ -156,14 +162,14 @@ Usage: seasurface_detector [params]
 
 ---
 
-## 5) Форматы CSV
+## 6) Форматы CSV
 
-### 5.1 CSV детекций (`--csv=...`)
+### 6.1 CSV детекций (`--csv=...`)
 ```
 source,frame,track_id,class_id,class_name,conf,x,y,w,h
 ```
 
-### 5.2 GT CSV (`--gt_csv=...`)
+### 6.2 GT CSV (`--gt_csv=...`)
 Ожидается:
 ```
 source,frame,class_id,x,y,w,h
@@ -171,27 +177,27 @@ source,frame,class_id,x,y,w,h
 
 ---
 
-## 6) Описание алгоритмов
+## 7) Описание алгоритмов
 
 
 ---
 
-## 7) Обучение YOLO + экспорт в ONNX
+## 8) Обучение YOLO + экспорт в ONNX
 Была натренирована модель `yolov8n.pt`
 
-### 7.1 Python окружение
+### 8.1 Python окружение
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -U pip
 ```
 
-### 7.2 Установка Ultralytics
+### 8.2 Установка Ultralytics
 ```bash
 pip install ultralytics opencv-python pyyaml
 ```
 
-### 7.3 Установка PyTorch (рекомендуется с CUDA)
+### 8.3 Установка PyTorch (рекомендуется с CUDA)
 PyTorch устанавливается по официальной команде с сайта PyTorch под среду.
 После установки проверьте:
 ```bash
@@ -204,7 +210,7 @@ if torch.cuda.is_available():
 PY
 ```
 
-### 7.4 Конвертация COCO -> YOLO
+### 8.4 Конвертация COCO -> YOLO
 Использованный датасет Seadronessee анотирован в формате COCO. YOLO же ожидает одноименную нотацию.
 Для конвертации используются следующие написанные утилиты:
 ```bash
@@ -235,7 +241,7 @@ datasets/seadronessee_yolo/val/classes.txt
 models/classes.txt
 ```
 
-### 7.5 dataset.yaml
+### 8.5 dataset.yaml
 Пример имён классов (в правильном порядке):
 ```
 swimmer
@@ -254,7 +260,7 @@ python tools/make_dataset_yaml.py \
   --out=datasets/seadronessee_yolo/seadronessee.yaml
 ```
 
-### 7.6 Обучение
+### 8.6 Обучение
 ```bash
 yolo detect train \
   data=datasets/seadronessee_yolo/seadronessee.yaml \
@@ -265,7 +271,7 @@ yolo detect train \
   device=0
 ```
 
-### 7.7 Экспорт в ONNX
+### 8.7 Экспорт в ONNX
 ```bash
 yolo export \
   model=runs/detect/train/weights/best.pt \
@@ -280,7 +286,7 @@ models/best.onnx
 
 ---
 
-## 8) GT CSV для метрик
+## 9) GT CSV для метрик
 
 ```bash
 python tools/yolo_to_gt_csv.py \
@@ -291,7 +297,7 @@ python tools/yolo_to_gt_csv.py \
 
 ---
 
-## 9) Бенчмарк
+## 10) Бенчмарк
 ```bash
 ./build/seasurface_detector \
   --input=datasets/seadronessee_yolo/val/images \
@@ -306,7 +312,7 @@ python tools/yolo_to_gt_csv.py \
   --use_gpu=true
 ```
 
-### 10) Выводы
+## 11) Выводы
 Резудьтаты бенчмарка (разрешение `1230x933`, `IoU=0.5`, `1547` кадров) следующие:
 - Общее время обработки: `71.933 с`
 - Среднее время обработки кадра: `46.498 мс`

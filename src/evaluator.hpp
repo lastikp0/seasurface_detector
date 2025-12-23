@@ -1,8 +1,10 @@
 #pragma once
+
 #include <opencv2/opencv.hpp>
 #include <string>
 #include <unordered_map>
 #include <vector>
+
 #include "detector.hpp"
 
 struct EvalResult {

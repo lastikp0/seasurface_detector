@@ -1,15 +1,20 @@
 #include "utils.hpp"
+
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
 #include <iomanip>
 #include <sstream>
 #include <stdexcept>
+#include <filesystem>
+#include <string>
+#include <vector>
 
 namespace utils {
 
 std::string to_lower(std::string s) {
     for (auto& c : s) c = (char)std::tolower((unsigned char)c);
+
     return s;
 }
 
@@ -26,12 +31,14 @@ double sum(const std::vector<double>& v) {
     if (v.empty()) return 0.0;
     double s = 0.0;
     for (double x : v) s += x;
+
     return s;
 }
 
 std::string format_float(double v, int digits) {
     std::ostringstream oss;
     oss << std::fixed << std::setprecision(digits) << v;
+    
     return oss.str();
 }
 

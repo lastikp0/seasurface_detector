@@ -1,5 +1,4 @@
 #include <opencv2/opencv.hpp>
-#include <opencv2/core/cuda.hpp>
 
 #include <chrono>
 #include <filesystem>
@@ -50,6 +49,7 @@ static std::vector<fs::path> list_images(const fs::path& dir) {
         if (is_image_ext(e.path())) out.push_back(e.path());
     }
     std::sort(out.begin(), out.end());
+
     return out;
 }
 
@@ -70,6 +70,7 @@ static cv::Scalar color_for_id(int id) {
     if ((c[0] + c[1] + c[2]) < 60) {
         col = cv::Scalar(0, 255, 0);
     }
+
     return col;
 }
 
@@ -110,6 +111,7 @@ static int run_on_image(const fs::path& img_path,
     cv::Mat img = cv::imread(img_path.string(), cv::IMREAD_COLOR);
     if (img.empty()) {
         std::cerr << "ERROR: failed to read image: " << img_path << "\n";
+
         return 1;
     }
 
@@ -129,8 +131,10 @@ static int run_on_image(const fs::path& img_path,
     fs::path out_path = out_dir / ("annotated_" + img_path.filename().string());
     if (!cv::imwrite(out_path.string(), vis)) {
         std::cerr << "ERROR: failed to write output image: " << out_path << "\n";
+
         return 1;
     }
+
     return 0;
 }
 
@@ -147,6 +151,7 @@ static int run_on_video(const fs::path& video_path,
     cv::VideoCapture cap(video_path.string());
     if (!cap.isOpened()) {
         std::cerr << "ERROR: failed to open video: " << video_path << "\n";
+
         return 1;
     }
 
@@ -157,17 +162,17 @@ static int run_on_video(const fs::path& video_path,
 
     int fourcc = cv::VideoWriter::fourcc('m','p','4','v');
     fs::path out_path = out_dir / ("annotated_" + video_path.filename().string());
+    out_path.replace_extension(".mp4");
     cv::VideoWriter writer(out_path.string(), fourcc, fps, cv::Size(width, height));
     if (!writer.isOpened()) {
         std::cerr << "ERROR: failed to open output video for writing: " << out_path << "\n";
+
         return 1;
     }
 
     cv::Mat frame;
     int frame_idx = 0;
-    while (true) {
-        if (!cap.read(frame)) break;
-
+    while (cap.read(frame)) {
         auto t0 = std::chrono::steady_clock::now();
         auto dets = detector.detect(frame);
         if (tracker) tracker->update(dets, iou_thr);
@@ -194,41 +199,43 @@ int main(int argc, char** argv) {
         parser.about("seasurface_detector (C++17/OpenCV) - maritime surface object detection");
         if (parser.has("help") || argc == 1) {
             parser.printMessage();
+
             return 0;
         }
 
         const std::string input_raw = parser.get<std::string>("input");
         const std::string output_raw = parser.get<std::string>("output");
-
-        const fs::path in_path = utils::expand_user_path(fs::path(input_raw));
-        const fs::path out_dir = utils::expand_user_path(fs::path(output_raw));
+        const std::string model_raw = parser.get<std::string>("model");
+        const std::string classes_raw = parser.get<std::string>("classes");
 
         const bool eval = parser.get<bool>("eval");
         const bool class_agnostic = parser.get<bool>("class_agnostic");
         const bool use_gpu = parser.get<bool>("use_gpu");
-        const std::string model_raw = parser.get<std::string>("model");
-        const std::string classes_raw = parser.get<std::string>("classes");
+        const bool track = parser.get<bool>("track");
+
+        const int max_missed = parser.get<int>("max_missed");
         const int imgsz = parser.get<int>("imgsz");
+
         const float conf_thr = parser.get<float>("conf");
         const float nms_thr  = parser.get<float>("nms");
-
-        if (imgsz <= 0) { std::cerr << "ERROR: --imgsz must be > 0\n"; return 2; }
-        if (conf_thr < 0.0f || conf_thr > 1.0f) { std::cerr << "ERROR: --conf must be in [0,1]\n"; return 2; }
-        if (nms_thr < 0.0f || nms_thr > 1.0f) { std::cerr << "ERROR: --nms must be in [0,1]\n"; return 2; }
-
-        const bool track = parser.get<bool>("track");
-        const int max_missed = parser.get<int>("max_missed");
         const float iou_thr = parser.get<float>("iou");
 
         if (input_raw.empty()) { std::cerr << "ERROR: --input is required\n"; return 2; }
-        if (iou_thr <= 0.0f || iou_thr > 1.0f) { std::cerr << "ERROR: --iou must be in (0,1]\n"; return 2; }
+
         if (max_missed < 0) { std::cerr << "ERROR: --max_missed must be >= 0\n"; return 2; }
+        if (imgsz <= 0) { std::cerr << "ERROR: --imgsz must be > 0\n"; return 2; }
+
+        if (conf_thr < 0.0f || conf_thr > 1.0f) { std::cerr << "ERROR: --conf must be in [0,1]\n"; return 2; }
+        if (nms_thr < 0.0f || nms_thr > 1.0f) { std::cerr << "ERROR: --nms must be in [0,1]\n"; return 2; }
+        if (iou_thr <= 0.0f || iou_thr > 1.0f) { std::cerr << "ERROR: --iou must be in (0,1]\n"; return 2; }
+
+        const fs::path in_path = utils::expand_user_path(fs::path(input_raw));
+        const fs::path out_dir = utils::expand_user_path(fs::path(output_raw));
+        const fs::path csv_path = out_dir / "dets.csv";
+
+        if (!fs::exists(in_path)) { std::cerr << "ERROR: input path does not exist: " << in_path << "\n"; return 2; }
 
         utils::ensure_dir(out_dir);
-
-        fs::path csv_path = out_dir / "dets.csv";
-
-        utils::ensure_dir(csv_path.parent_path());
 
         CsvWriter csv(csv_path.string());
 
@@ -237,11 +244,13 @@ int main(int argc, char** argv) {
         if (eval) {
             if (gt_csv_raw.empty() || gt_csv_raw == "true" || gt_csv_raw == "false") {
                 std::cerr << "ERROR: --eval true requires --gt_csv=<path>\n";
+
                 return 2;
             }
             fs::path gt_csv_path = utils::expand_user_path(fs::path(gt_csv_raw));
             if (!fs::exists(gt_csv_path)) {
                 std::cerr << "ERROR: gt_csv path does not exist: " << gt_csv_path << "\n";
+
                 return 2;
             }
             evaluator = std::make_unique<Evaluator>(gt_csv_path.string(), class_agnostic);
@@ -253,6 +262,7 @@ int main(int argc, char** argv) {
             fs::path model_path = utils::expand_user_path(fs::path(model_raw));
             if (!fs::exists(model_path)) {
                 std::cerr << "ERROR: model path does not exist: " << model_path << "\n";
+
                 return 2;
             }
         
@@ -266,6 +276,7 @@ int main(int argc, char** argv) {
             if (!fs::exists(classes_path)) {
                 std::cerr << "ERROR: classes file not found: " << classes_path
                           << " (use --classes=path/to/classes.txt)\n";
+                
                 return 2;
             }
         
@@ -284,13 +295,10 @@ int main(int argc, char** argv) {
             std::cerr << "INFO: Using Dummy detector (no --model provided)\n";
         }
 
-
         std::unique_ptr<SimpleTracker> tracker_ptr;
         if (track) tracker_ptr = std::make_unique<SimpleTracker>(max_missed);
 
         TimingStats timing;
-
-        if (!fs::exists(in_path)) { std::cerr << "ERROR: input path does not exist: " << in_path << "\n"; return 2; }
 
         int rc = 0;
         if (fs::is_directory(in_path)) {
@@ -315,6 +323,7 @@ int main(int argc, char** argv) {
                         rc = run_on_video(in_path, out_dir, in_path.filename().string(), *detector, tracker_ptr.get(), csv, evaluator.get(), iou_thr, timing);
                     } else {
                         std::cerr << "ERROR: unsupported or unreadable input format: " << in_path << "\n";
+
                         return 2;
                     }
                 }
@@ -345,6 +354,7 @@ int main(int argc, char** argv) {
         return rc;
     } catch (const std::exception& e) {
         std::cerr << "ERROR: " << e.what() << "\n";
+        
         return 2;
     }
 }
